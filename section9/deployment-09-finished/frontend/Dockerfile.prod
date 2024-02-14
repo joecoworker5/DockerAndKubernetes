@@ -1,0 +1,26 @@
+# as alias 供後面 stage build 使用
+FROM node:14-alpine as build 
+
+WORKDIR /app
+
+COPY package.json .
+
+RUN npm install
+
+COPY . .
+
+# npm run build 會在 container 中建立 /app/build folder
+RUN npm run build
+
+# 每一個 from 都是一個新的 stage
+FROM nginx:stable-alpine 
+
+# 將先前 build(跟上面的 as build做對應) 的結果映射到 nginx server 當中
+COPY --from=build /app/build /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+
+
+

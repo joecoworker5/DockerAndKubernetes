@@ -1,0 +1,52 @@
+version: "3.8" # docker compose version
+services: # containers
+  mongodb: # 這裡的 containerName 可以用在 code 裡面讓 container 之間互相連線
+    image: 'mongo'
+    # container_name: customContainerName 自定義 container name
+    volumes:
+      - data:/data/db # - singleValue pattern
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: max # key: value pattern
+    #   MONGO_INITDB_ROOT_PASSWORD: secret
+    env_file:
+      - ./env/mongo.env  
+    # networks:
+    #   - goals-net 
+  backend:
+    build: ./backend # Dockerfile路徑, build image
+    # build:
+    #   context: ./backend
+    #   dockerfile: 
+    #   args:
+    #     some-arg: 1
+    ports: 
+      - '80:80'
+    volumes:
+      - logs:/app/logs
+      - ./backend:/app # docker run 需要絕對路徑, 但 docker compose 只要相對路徑
+      - /app/node_modules
+    env_file:
+      - ./env/backend.env
+    depends_on:
+      - mongodb # backend 需要 mongodb 起起來才能啟動
+  frontend:
+    build: ./frontend # Dockerfile路徑, build image
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./frontend/src:/app/src
+    stdin_open: true # -i
+    tty: true # -t
+    depends_on:
+      - backend
+  
+volumes:
+  data: # 需要列出所有 name volume, anonymous 和 mount 不需要
+  logs:
+
+# replace docker-commands.txt
+# docker compose container 預設 --rm -d 選項
+# docker compose 預設將所有 container 建立在相同 network 之中, 非特殊需求不需特別指定
+
+
+
