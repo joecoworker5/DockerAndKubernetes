@@ -399,7 +399,7 @@ Development to Production
 ```
 
 # Docker section 10: docker 大回顧
- 
+ [link](../section10/slides-mid-summary.pdf)
   
 
 
