@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: second-app-deployment
+  labels:
+    group: example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: second-app
+      tier: backend
+    # matchExpressions: 
+    #   - {key: app, operator: NotIn, values: [second-app, first-app]}
+  template:
+    metadata: 
+      labels:
+        app: second-app
+        tier: backend
+    spec: 
+      containers:
+        - name: second-node
+          image: joesu0610/kubernetes:1.0.0
+          imagePullPolicy: Always # 不管如何都 pull image，即使 image 名稱不變
+          livenessProbe: # health check
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 10 # 每10s 做 health check
+            initialDelaySeconds: 5 # 等 5s 開始做 health check
+        # - name: ...
+        #   image: ...

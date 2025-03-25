@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      app: story
+  template: # pod obj
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: joesu0610/kubernetes:3.0.0
+          volumeMounts: # bind volume with container
+            - mountPath: /app/story
+              name: story-volume
+      volumes: # volume 屬於 pod, 所以要定義在 pod obj 裡面, pod 裡的 containers 共享這個 volume
+        - name: story-volume
+          emptyDir: {} # {} 代表使用預設設定, emptyDir 為 volume type, 代表在 pod 裡面的資料夾

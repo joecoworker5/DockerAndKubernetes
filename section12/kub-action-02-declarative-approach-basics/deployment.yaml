@@ -1,0 +1,22 @@
+# replace kubectl create deployment second-app-deployment --image=joesu0610/kubernetes:1.0.0
+apiVersion: apps/v1
+kind: Deployment #Service/Job....
+metadata: # 只要是 kubernetes object 都會有 metadata
+  name: second-app-deployment # 給 Deployment obj a name
+spec: # specification
+  replicas: 1 # default is 1, number of Pods
+  selector: # 告訴 deployment obj 哪些 pod 由他管轄, 和 pod 的 label key value pair 互相對應
+    matchLabels: # 還有 matchExpressions 但比較複雜
+      app: second-app # key/value pair 由自己定義和 pod 互相對應
+      tier: backend # key/value pair 由自己定義和 pod 互相對應
+  template: # 定義 Pod object
+    metadata: # 只要是 kubernetes object 都會有 metadata
+      labels:
+        app: second-app # key/value pair 由自己定義和 deployment 互相對應
+        tier: backend # key/value pair  由自己定義和 deployment 互相對應
+    spec: 
+      containers: # pod 可以有多個 container
+        - name: second-node
+          image: joesu0610/kubernetes:1.0.0 # image tag
+        # - name: ...
+        #   image: ...

@@ -400,6 +400,275 @@ Development to Production
 
 # Docker section 10: docker 大回顧
  [link](../section10/slides-mid-summary.pdf)
+
+
+# kubernetes section 11: Getting start with kubernetes 
+kubernetes 幫我們處理 deployment, autoscaling, load balance 等在不同的機器上, 有點像 docker-compose 但卻部屬在不同機器上, 而這些機器我們必須要事先準備好並安裝 kubernetes 相關的套件, 才可以 work, 類似我們需要先安裝 docker 才能跑 Docker compose...
+![image](./29.png)
+![image](./30.png)
+![image](./31.png)
+![image](./32.png)
+![image](./34.png)
+- 介紹 kubernetes Cluster, Worker Node, Pod, Master Node 等術語
+![image](./33.png)
+![image](./35.png)
+![image](./36.png)
+![image](./37.png)
+
+# kubernetes section 12: Kubernetes in action: dive into the core concept
+![image](./34.png)
+- kubernetes 只在乎如何 deploy application, scaling, LB 等等, 但所需的機器和套件都必須我們自己準備如上圖的右側
+- 如果不想自己處理機器等安裝, 可以使用 kubermatic, AWS EKS(elastic Kubernetes Service) 等服務, 我們只要給他們 kubernetes configuration, 他們就會幫我們建好一切
+
+## Kubernetes: Required SetUp & Installation Steps
+![image](./38.png)
+  - 安裝 kubectl and minikube(local clustor) 在本機:
+  - kubectl 負責下指令(kubernetes Object)給 clustor 告訴 clustor 要幹嘛
+  - 先在本機測試 kubernetes configuration 是否 work, 在 deploy 到 remote machine
+  - https://minikube.sigs.k8s.io/docs/start/
+  - https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/
+```
+brew install kubectl
+brew install minikube
+minikube start (--driver=docker)(lauch local single Node clustor)
+docker ps(可以看到 minikube 確實有起起來)
+minikube status (check the status of cluster)
+minikube dashboard(web dashboard)
+
+minikube stop (stop clustor)
+```
+
+## Understanding kubernetes Objects (Resources, v.186)
+kubernetes Objects 如同指令, 餵給 kubernetes clustor 他就知道要做什麼
+![image](./39.png)
+1. Pod Object & Deployment Object
+   - 通常我們不會自己建立 Pod Object 因為這是 kubernetes 要幫我們用的, 我們會建立 Deployment Object 來指示 kubernetes 要怎麼處理 Pods
+    ![image](./40.png)
+    ![image](./41.png)
+    ```
+    docker build -t kub-first-app . (建立讓 cluster 可以 run container 的 image)
+    kubectl --help
+    kubectl create deployment first-app --image=kub-first-app (建立 deployment Obj to clustor, 並使用剛剛build的 kub-first-app image)
+    kubectl get deployments (取得有哪些 deployment)
+    kubectl get pods (看 pods 狀況)
+    但我們會發現 pod Status 為 ErrImagePull, 原因時因為 clustor 是在另一個 VM 所以沒有 kub-first-app 這個 local image, 所以我們需要把他 push 到 docker hub 上面, 這樣 clustor 才找得到
+    
+    kubectl delete deployment first-app
+    docker tag kub-first-app joesu0610/kubernetes
+    docker push joesu0610/kubernetes ( push 到自己的 docker hub)
+    kubectl create deployment first-app --image=joesu0610/kubernetes
+    kubectl get deployments
+    kubectl get pods (看到 Status running 代表 pod 有成功起起來)
+    這時候看 minikube dashboard 就可以看到 1 pod 和相關資訊
+    ```
+  - What "kubectl create deployment first-app --image=joesu0610/kubernetes" Do?
+   ![image](./42.png)
+
+2. Service Object (v.190)
+  ![image](./43.png)
+  - pod 雖然有 InternalIp 但我們無法透過 InternalIp 直接和他們聯繫
+  - 透過 Service Obj 我們可以從 clustor 外和 pod 連線
+  ```
+  kubectl expose deployment first-app --type=LoadBalancer(還有別種type可選擇, 查看 document) --port=8080(expose first-app deployment on 8080 port, 我們可以直接透過 localhost:8080 和 pod 連線)
+  kubectl get services (如果我們在新的機器上就應該會有 external_ip, 但因為 minikube 是 local VM, 所以才會在 pending 狀態)
+  -----------------------------------------------------------------------------
+  NAME         TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+  first-app    LoadBalancer   10.99.146.56   <pending>     8080:30347/TCP   5s
+  -----------------------------------------------------------------------------
+
+  minikube service first-app(讓我們可以和 VM 中的 service 連線, 一般來說不需要這一行)
+
+  如果我們打 /error 來讓 container crash 
+  kubectl get pods(我們會發現過一陣子 pod 裡的 container 又被 restart 起來 restart +1)
+  
+  kubectl scale deployment/first-app --replicas=3 (replicas 代表我們要幾個 pod)
+  觀看 minikube dashboard 發現 pod 變成 3 個, 且這三個 pod 都在同一個 service(LB 底下)
+  kubectl scale deployment/first-app --replicas=1
+  ```
+3. Updating Deployment(v.194)
+  ```
+  更改 source code 後
+  docker build -t joesu0610/kubernetes:1.0.0 .
+  docker push joesu0610/kubernetes:1.0.0
+  kubectl set image deployment/first-app kubernetes=joesu0610/kubernetes:1.0.0(old image=new image, 跑完這一行我們就完成 update deployment 動作了)
+  ```
+4. Deployment RollBack & history(v.195)
+  ```
+  kubectl set image deployment/first-app kubernetes=joesu0610/kubernetes:3.0.0(故意用一個不存在的 image, 導致 update fail)
+  kubectl rollout status deployment/first-app(觀察 pod rolling out 的狀況, 由於新的 pod 找不到 image一直起不起來, 所以舊的不會被關掉)
+  kubectl get pods(舊的存在，但新的起不起來)
+  kubectl rollout undo deployment/first-app(rollback rollout to previous deployment)
+  kubectl rollout history deployment/first-app (查看 deployment history)
+  kubectl rollout history deployment/first-app --revision=1 (查看 revision 1 deployment history)
+  kubectl rollout undo deployment/first-app --to-revision=1 (rollback to revision=1 deployment, 會發現 app 回到最一開始的版本)
+
+  kubectl delete service first-app (清除 service first-app)
+  kubectl delete deployment first-app (清除 deployment first-app)
+  ```
+
+5. The imperative vs **declarative approach**(參考kub-action-02-declarative-approach-basics, v.196~)
+![image](./44.png)
+- 前面的範例都是 imperative 下指令的方法, 但每次都要手動下指令很麻煩, 所以透過 declarative approach 來下指令 trigger Configuration file 更方便 (類似 docker-compose.yml file 的功用)
+- 透過 Selector configuration 讓我們可以將不同的 kubernetes obj 互相關聯 
+
+**Creating a Deployment Obj**
+- https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#deployment-v1-apps
+- 參考 deployment.yaml(名稱自己取) [link](../section12/kub-action-02-declarative-approach-basics/deployment.yaml)
+```
+定義 deployment.yaml
+kubectl apply -f=deployment.yaml (執行 deployment.yaml file)
+kubectl get deployments
+kubectl get pods(1 個 pod)
+```
+
+**Creating a Service Obj(v.200)**
+- https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#service-v1-core
+- 參考 service.yaml(名稱自己取) [link](../section12/kub-action-02-declarative-approach-basics/service.yaml)
+```
+kubectl apply -f=service.yaml
+kubectl get services
+minikube service backend(service name)
+```
+
+**Updating and Deleting Resources(v.201)**
+```
+更改 yaml file
+kubectl apply -f=deployment.yaml （ then update works!!)
+
+kubectl delete -f=deployment.yaml,service.yaml (delete deployment.yaml 和 service.yaml 產生的 resource)
+當然也可以用一般的 imperative del way
+kubectl delete service backend
+kubectl delete deployment second-app-deployment
+```
+
+**Mutiple vs Single Config Files(參考kub-action-03-merging-config-files, v.202)**
+- 參考 master-deployment.yaml(名稱自己取) [link](../section12/kub-action-03-declarative-approach-basics/master-deployment.yaml)
+- 透過 --- 將不同 yaml 檔案合併
+- 這些 kubernetes obj 並非在 create 當下作用一次，而是會持續 running 狀態, 當 pod 發生改變時, 根據 selector 決定是否加入 service 等等
+- Service 通常會放在 deployment 前面, 這樣執行到 deployment 時 service 就可以把 deployment 產生得 pod 加進去，但誰先誰後其實都可以 work
+```
+kubectl apply -f=master-deployment.yaml 
+kubectl get services
+minikube service backend(service name)
+```
+
+**More on Labels and Selectors(參考 kub-action-04-more-on-labels-and-selectors v.203)**
+- 透過 Selector configuration 讓我們可以將不同的 kubernetes obj 互相關聯
+- - 有 matchLabels, matchExpressions
+- 參考 deployment.yaml(名稱自己取) [link](../section12/kub-action-04-more-on-labels-and-selectors/deployment.yaml)
+```
+kubectl apply -f=deployment.yaml,service.yaml
+kubectl delete deployments,services -l group=example (delete by label)
+kubectl delete deployment second-app-deployment(del by name)
+```
+
+**Liveness probs(Health Check 參考kub-action-05-finished v.204)**
+- 參考 deployment.yaml(名稱自己取) [link](../section12/kub-action-05-finished/deployment.yaml)
+
+
+# kubernetes section 13: Managing Data & Volume with kubernetes
+1. kub-data-01-starting-setup(v.209)
+```
+docker-comopse up -d --build(確保每次都 build image)
+docker-compose down
+docker-comopse up -d --build (發現即使 container rm 後 recreate 仍然保有原本資料, 因為有 volume)
+我們也希望在 kubernetes 達到相同得目的
+```
+- kubernetes 同樣透過 volume 來保存 data
+- container restart/recreate 時, volume 不會消失因此資料可以獲得保存
+- 和 docker 不一樣的地方在於, 
+  - kubernetes volume 是在 pod 當中, 所以當 pod 消失時, volume 也會跟這消失
+  - kubernetes volume 有很多種種類，可以存在 local machine, 或雲端服務當中 https://kubernetes.io/docs/concepts/storage/volumes/
+- 透過 configuration, 可以告訴 kubernetes 該如何處理 volume
+![image](./45.png)
+![image](./46.png)
+![image](./47.png)
+
+2. Creating New Deployment and Service(kub-data-02-deployment-and-service, v.212)
+```
+docker build -t joesu0610/kubernetes:2.0.0 .
+docker push joesu0610/kubernetes:2.0.0
+kubectl apply -f=deployment.yaml,service.yaml
+kubectl get services
+minikube service story-service
+```
+現在我們還沒有加入 volume, 所以當 container recreate 後資料就會不見
+
+3. A First Volume: The "emptyDir" Type(參考 kub-data-03-first-volume v.214)
+- 參考 deployment.yaml(名稱自己取) [link](../section13/kub-data-03-first-volume/deployment.yaml)
+- emptyDir: 在 pod 裡面的資料夾, mount 到 container, 因為是在 pod 裡面, 所以要定義在 pod object 中
+- 所以當 container restart, 資料仍可以保留
+- 但當 pod 被消滅, volume 也會跟著消失
+
+4. A Second Volume: The "hostPath" Type(參考kub-data-04-hostpath, v.215)
+- 參考 deployment.yaml(名稱自己取) [link](../section13/kub-data-04-hostpath/deployment.yaml)  
+- 假設今天打到別的 pod, 或 pod 被消滅, 那就打不到原本的 emptyDir volume, 這時候可以使用 hostPath
+- hostPath volume 位於 Node(machine 當中), Node 內的 pod 共享, 所以即使 pod 消失也不會不見
+- hostPath 如同 Mount, 當我們在 Node folder 新增檔案時，也會同時映射到 container 當中
+- 但如果當 Node 被消滅, 或有多個 Node, hostPath 則不管用, 在 prod 一般都是 multi-Node
+
+5. Understanding the "CSI" volume type(參考, v.216)
+- CSI: Container Storage Interface
+- 實在太多 volume 供 kubernetes 去對接, kubernetes team 直接設計 CSI interface 讓各種 volume type 去實作 ex: AWS EFS CSI
+
+6. From volumes to persistent volume(參考kub-data-05-pv-and-pvc, v.217)
+![image](./48.png)
+![image](./49.png)
+- https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+- 前面提到的 volume 定義在 Node or pod, 我們可以定義獨立於 node / pod 的 volume, 讓各種 node / pod 都可以指向他
+- persistent volume independent from pod, Node, 獨立於 pod or Node, 只需建立 pv 一次, pod/node 可透過 pv claim 指向 pv 來使用 pv(我們也可以使用現有的雲端儲存服務 ex AWS EBS etc...)
+- 因為 minikube 只是 single Node, 所以範例的 persistent volume type 為 hostPath, 當然也可以使用其他的 pv type
+- 參考 deployment.yaml[link](../section13/kub-data-05-pv-and-pvc/deployment.yaml)  
+- 參考 host-pv.yaml[link](../section13/kub-data-05-pv-and-pvc/host-pv.yaml)  
+- 參考 host-pvc.yaml[link](../section13/kub-data-05-pv-and-pvc/host-pvc.yaml)  
+
+```
+也可以把上面三個檔案用 --- 串再一起
+kubectl apply -f=host-pv.yaml (建立 persistent volume(pv))
+kubectl apply -f=host-pvc.yaml (建立 pv claim)
+kubectl apply -f=deployment.yaml （ pod 指定 pv claim -> pv)
+kubectl get pv (查看 persistent volume)
+kubectl get pvc (查看 persistent volume claim)
+```
+
+7. Using Environment variable(參考kub-data-06-env, v.222)
+  
+**app.js**
+```
+const filePath = path.join(__dirname, process.env.STORY_FOLDER, 'text.txt');
+```
+**deployment.yaml**
+```
+   spec:
+      containers:
+        - name: story
+          image: joesu0610/kubernetes:3.0.0
+          env:
+            - name: STORY_FOLDER
+              # value: 'story' # 直接寫 value
+              valueFrom: # 從 configMap obj 中讀取
+                configMapKeyRef:
+                  name: data-store-env
+                  key: folder
+```
+**environment.yaml**
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-store-env
+data:
+  folder: 'story'
+```
+
+
+
+
+
+
+
+  
+
   
 
 

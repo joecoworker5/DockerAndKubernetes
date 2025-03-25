@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim # for pod to claim to use which persistent volume
+metadata:
+  name: host-pvc
+spec:
+  volumeName: host-pv # 和 host-pv.yaml 的 pv name 做對應
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests: 
+      storage: 1Gi # 不能超過 host-pv.yaml 的 1Gi

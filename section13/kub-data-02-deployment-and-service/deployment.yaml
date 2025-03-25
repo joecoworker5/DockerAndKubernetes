@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec: 
+  replicas: 1 # number of pod
+  selector:
+    matchLabels:
+      app: story
+  template: # Pod object
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: joesu0610/kubernetes:2.0.0

@@ -1,0 +1,16 @@
+# replace kubectl expose deployment second-app-deployment --type=LoadBalancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:  # 只有 matchLabels 因為 service obj 比較舊= =所以還沒有 matchExpressions
+    app: second-app # 只要 pod 有這個 label 就會被加進來
+  ports:
+    - protocol: 'TCP'
+      port: 80 # local machine host
+      targetPort: 8080 # container expose port
+    # - protocol: 'TCP'
+    #   port: 443
+    #   targetPort: 443
+  type: LoadBalancer # ClusterIP(Internal IP, only can be accessed inside cluster), NodePort(accessible from outside cluster)

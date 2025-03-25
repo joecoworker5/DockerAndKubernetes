@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-pv
+spec:
+  capacity: 
+    storage: 1Gi
+  volumeMode: Filesystem # Filesystem/Block
+  storageClassName: standard # 
+  accessModes:
+    - ReadWriteOnce # ReadOnlyMany(r volume be claimed by many nodes)/ReadWriteMany(r/w volume can be claimed by a many nodes)/ReadWriteOnce(r/w volume can be claimed by a single node)
+  hostPath: # 因為local 使用 minikube 只有 single Node, 所以選擇 hostPath volume, 且只能為 ReadWriteOnce
+    path: /data # 本機(local Node)路徑 
+    type: DirectoryOrCreate
